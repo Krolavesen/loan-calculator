@@ -102,7 +102,14 @@ class Loan:
 
 
 class CustomerDividend:
-    def __init__(self, deposit, borrowers) -> None:
+    def __init__(
+        self,
+        deposit,
+        borrowers,
+        dividend_rate=DIVIDEND_RATE,
+        max_loan_per_borrower=MAX_LOAN_PER_BORROWER,
+        max_deposit=MAX_DEPOSIT,
+    ) -> None:
         """Initialize a CustomerDividend object.
 
         Parameters
@@ -111,9 +118,20 @@ class CustomerDividend:
             Amount deposited during the previous calendar year in NOK.
         borrowers : int
             Number of borrowers associated with a loan.
+        dividend_rate : float, optional
+            Annual dividend rate expressed as a decimal. Defaults to
+            DIVIDEND_RATE in config.py.
+        max_loan_per_borrower : float, optional
+            Loan limit per borrower in NOK. Defaults to
+            MAX_LOAN_PER_BORROWER in config.py.
+        max_deposit : float, optional
+            Deposit limit in NOK. Defaults to MAX_DEPOSIT in config.py.
         """
         self.deposit = deposit
         self.borrowers = borrowers
+        self.dividend_rate = dividend_rate
+        self.max_loan_per_borrower = max_loan_per_borrower
+        self.max_deposit = max_deposit
 
     def get_dividend(self, loan_balance_schedule) -> np.ndarray:
         """Calculate the projected dividend rate over the payment schedule.
@@ -145,17 +163,25 @@ class CustomerDividend:
 
         borrowers = min(self.borrowers, 2)
 
-        loan_limit = MAX_LOAN_PER_BORROWER * borrowers
-        deposit_limit = MAX_DEPOSIT
+        loan_limit = self.max_loan_per_borrower * borrowers
+        deposit_limit = self.max_deposit
 
         eligible_loan = np.minimum(loan_balance_schedule, loan_limit)
         eligible_deposit = min(self.deposit, deposit_limit)
 
-        return (eligible_loan + eligible_deposit) * DIVIDEND_RATE
+        return (eligible_loan + eligible_deposit) * self.dividend_rate
 
 
 class MonthlyCost:
-    def __init__(self, loan, apartment, customer_dividend):
+    def __init__(
+        self,
+        loan,
+        apartment,
+        customer_dividend,
+        deduction_rate=DEDUCTION_RATE,
+        include_dividend=True,
+        include_deduction=True,
+    ):
         """Initialize a MonthlyCost object.
 
         Parameters
@@ -167,10 +193,20 @@ class MonthlyCost:
         customer_dividend : CustomerDividend
             CustomerDividend object used to calculate dividend returns
             in NOK.
+        deduction_rate : float, optional
+            Tax deduction rate expressed as a decimal. Defaults to
+            DEDUCTION_RATE in config.py.
+        include_dividend : bool, optional
+            Subtract the customer dividend from the monthly cost.
+        include_deduction : bool, optional
+            Subtract the tax deduction from the monthly cost.
         """
         self.loan = loan
         self.apartment = apartment
         self.customer_dividend = customer_dividend
+        self.deduction_rate = deduction_rate
+        self.include_dividend = include_dividend
+        self.include_deduction = include_deduction
 
     def _get_outstanding_balance_schedule(self) -> np.ndarray:
         """Calculate the projected outstanding balance schedule.
@@ -217,6 +253,10 @@ class MonthlyCost:
             in NOK.
         """
         balance = self._get_outstanding_balance_schedule()
+
+        if not self.include_dividend:
+            return np.zeros_like(balance)
+
         return self.customer_dividend.get_dividend(balance)
 
     def _get_tax_deduction(self) -> np.ndarray:
@@ -228,7 +268,11 @@ class MonthlyCost:
             Tax deduction for each month in the payment schedule in NOK.
         """
         interest = self.get_interest_schedule()
-        return interest * DEDUCTION_RATE
+
+        if not self.include_deduction:
+            return np.zeros_like(interest)
+
+        return interest * self.deduction_rate
 
     def get_monthly_cost(self) -> np.ndarray:
         """Calculate the projected monthly cost schedule.
@@ -246,6 +290,24 @@ class MonthlyCost:
             / self.customer_dividend.borrowers
         )
         return annuity + joint_expenses - deduction - dividend
+
+    def get_schedules(self) -> dict:
+        """Collect every projected schedule in a single mapping.
+
+        Returns
+        -------
+        dict
+            Keys are 'balance', 'interest', 'dividend', 'deduction' and
+            'monthly_cost'. Each value is an np.ndarray covering month 0
+            through the last month of the payment schedule.
+        """
+        return {
+            'balance': self._get_outstanding_balance_schedule(),
+            'interest': self.get_interest_schedule(),
+            'dividend': self._get_customer_dividend(),
+            'deduction': self._get_tax_deduction(),
+            'monthly_cost': self.get_monthly_cost(),
+        }
 
     # Add monthly cost levels. Best case, worst case, baseline.
     # Add quick access to interest +3%.
