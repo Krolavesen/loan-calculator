@@ -1,4 +1,7 @@
-
+# Annuitetslån oppdaterer renter årlig.
+# Sriv i known issues: antar konstant nominell
+# rente gjennom hele løper.
+ 
 
 # Configure max deposit.
 MAX_DEPOSIT = 2e6
