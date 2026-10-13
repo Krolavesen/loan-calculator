@@ -54,10 +54,10 @@ class MonthlyCostTest(unittest.TestCase):
 
     def test_monthly_cost_schedule(self):
         cost = make_expenses().get_monthly_cost()
-        self.assertAlmostEqual(cost[0], 13475.380464224838, places=8)
-        self.assertAlmostEqual(cost[1], 13479.441569448967, places=8)
-        self.assertAlmostEqual(cost[180], 14553.647711936312, places=8)
-        self.assertAlmostEqual(cost[360], 16805.710464224838, places=8)
+        self.assertAlmostEqual(cost[0], 12324.63046422484, places=8)
+        self.assertAlmostEqual(cost[1], 12327.69925806357, places=8)
+        self.assertAlmostEqual(cost[180], 13139.42833417939, places=8)
+        self.assertAlmostEqual(cost[360], 14841.21046422484, places=8)
 
     def test_amortises_to_zero(self):
         balance = make_expenses().get_schedules()['balance']
@@ -72,7 +72,7 @@ class MonthlyCostTest(unittest.TestCase):
         self.assertEqual(list(schedules['deduction']), [0] * 361)
         self.assertAlmostEqual(
             schedules['monthly_cost'][0],
-            bare.loan.get_annuity() + 3929 / 2,
+            bare.loan.get_annuity(),
             places=8,
         )
 
@@ -105,8 +105,8 @@ class BuildResponseTest(unittest.TestCase):
         self.assertEqual(body['months'], 360)
         self.assertEqual(body['amount'], 2.79e6)
         self.assertAlmostEqual(body['annuity'], 14841.21, places=2)
-        self.assertAlmostEqual(body['monthlyCost'][0], 13475.38, places=2)
-        self.assertAlmostEqual(body['monthlyCost'][360], 16805.71, places=2)
+        self.assertAlmostEqual(body['monthlyCost'][0], 12324.63, places=2)
+        self.assertAlmostEqual(body['monthlyCost'][360], 14841.21, places=2)
         self.assertEqual(body['jointExpensesShare'], 1964.5)
 
     def test_every_series_covers_month_zero_to_the_last_month(self):

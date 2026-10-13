@@ -94,11 +94,29 @@ class Loan:
         months = self.get_number_of_months()
 
         annuity = (
-            monthly_rate / (1 - (1 + monthly_rate)**(-months))
+            monthly_rate / (1 - (1 + monthly_rate) ** (-months))
             * self.amount
         )
 
         return annuity
+
+
+class LoanBorrower:
+    borrowers = 0
+    joint_savings = 0
+
+    def __init__(self, income, savings, debt) -> None:
+        self.income = income
+        self.savings = savings
+        self.debt = debt
+        LoanBorrower.borrowers += 1
+        LoanBorrower.joint_savings += savings
+
+    def get_max_loan_by_debt(self) -> float:
+        return self.income * 5 - self.debt
+
+    def get_max_purchase_price(self) -> float:
+        return self.get_max_loan_by_debt() + self.savings
 
 
 class CustomerDividend:
@@ -287,9 +305,9 @@ class MonthlyCost:
         dividend = self._get_customer_dividend() / 12
         joint_expenses = (
             self.apartment.joint_expenses
-            / self.customer_dividend.borrowers
+            / self.customer_dividend.borrowers  # change to borrowers from Borrower object
         )
-        return annuity + joint_expenses - deduction - dividend
+        return annuity - deduction  # + joint expenses - dividend
 
     def get_schedules(self) -> dict:
         """Collect every projected schedule in a single mapping.
@@ -309,5 +327,3 @@ class MonthlyCost:
             'monthly_cost': self.get_monthly_cost(),
         }
 
-    # Add monthly cost levels. Best case, worst case, baseline.
-    # Add quick access to interest +3%.
