@@ -303,6 +303,92 @@ body {
   text-decoration: underline;
 }
 
+.compare {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.compare-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.compare-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: 12px 16px;
+  align-items: end;
+}
+
+@media (max-width: 700px) {
+  .compare-controls {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.compare-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.compare-toggle input {
+  accent-color: var(--accent);
+}
+
+.compare-summary {
+  margin: 0;
+}
+
+.compare-wrap {
+  overflow-x: auto;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.compare-table th[scope='col']:nth-child(n + 2) {
+  min-width: 120px;
+}
+
+.schedule.compare-table tbody th {
+  text-align: left;
+}
+
+.schedule .compare-group th {
+  padding-top: 16px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  text-align: left;
+}
+
+.compare-changed th,
+.compare-changed td {
+  background: var(--accent-soft);
+}
+
+.compare-diff {
+  font-weight: 600;
+}
+
+.compare-changed .compare-diff {
+  color: var(--accent);
+}
+
+.compare-empty {
+  text-align: center;
+  color: var(--text-muted);
+}
+
 /* --- Fields ------------------------------------------------------------- */
 
 .field {

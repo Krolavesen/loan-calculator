@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Accordion } from '@base-ui/react/accordion'
 import { Tabs } from '@base-ui/react/tabs'
 import { CostChart } from './components/CostChart'
+import { CompareViews } from './components/CompareViews'
 import { CountField } from './components/CountField'
 import { MoneyField } from './components/MoneyField'
 import { RateField } from './components/RateField'
@@ -88,6 +89,7 @@ function Calculator({ defaults }: { defaults: Defaults }) {
   const [stressed, setStressed] = useState(initial.stressed)
   const [viewName, setViewName] = useState<string | null>(initial.viewName)
   const [views, setViews] = useState<SavedView[]>(loadViews)
+  const [comparing, setComparing] = useState(false)
 
   // Once a shared link is loaded, edits shouldn't leave a stale link behind.
   useEffect(clearSharedState, [])
@@ -145,7 +147,16 @@ function Calculator({ defaults }: { defaults: Defaults }) {
             return false
           }
         }}
+        onCompare={() => setComparing((open) => !open)}
       />
+      {comparing ? (
+        <CompareViews
+          views={views}
+          current={{ form: input, config, stressed }}
+          stressBump={STRESS_BUMP}
+          onClose={() => setComparing(false)}
+        />
+      ) : null}
     <div className="layout">
       <form className="panel inputs" onSubmit={(event) => event.preventDefault()}>
         <section className="group">

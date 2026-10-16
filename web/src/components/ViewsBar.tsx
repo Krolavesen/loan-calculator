@@ -11,10 +11,11 @@ interface ViewsBarProps {
   onNew: () => void
   /** Copy a link that opens with the current inputs. Resolves false if copying failed. */
   onShare: () => Promise<boolean>
+  onCompare: () => void
 }
 
 /** Load, save and delete named views kept in this browser. */
-export function ViewsBar({ views, current, onLoad, onSave, onDelete, onNew, onShare }: ViewsBarProps) {
+export function ViewsBar({ views, current, onLoad, onSave, onDelete, onNew, onShare, onCompare }: ViewsBarProps) {
   const [name, setName] = useState(current ?? '')
   const [shared, setShared] = useState<'copied' | 'failed' | null>(null)
   const [lastCurrent, setLastCurrent] = useState(current)
@@ -88,6 +89,15 @@ export function ViewsBar({ views, current, onLoad, onSave, onDelete, onNew, onSh
           }}
         >
           {shared === 'copied' ? 'Copied' : 'Copy link'}
+        </button>
+        <button
+          type="button"
+          className="button"
+          onClick={onCompare}
+          disabled={views.length === 0}
+          title={views.length === 0 ? 'Save a view first to compare it' : undefined}
+        >
+          Compare
         </button>
       </div>
       <p className="field-hint views-hint" role="status">
