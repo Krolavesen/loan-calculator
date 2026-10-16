@@ -5,12 +5,21 @@ import { CostChart } from './components/CostChart'
 import { CountField } from './components/CountField'
 import { MoneyField } from './components/MoneyField'
 import { RateField } from './components/RateField'
+import { RecurringPayments } from './components/RecurringPayments'
 import { ScheduleTable } from './components/ScheduleTable'
 import { YearBarChart } from './components/YearBarChart'
 import { ToggleField } from './components/ToggleField'
 import { ViewsBar } from './components/ViewsBar'
 import { fetchDefaults, type Config, type Defaults, type Person, type Schedule } from './lib/api'
-import { EMPTY_FORM, isReady, toLoanInput, type FormValues, type Money } from './lib/form'
+import {
+  EMPTY_FORM,
+  isReady,
+  normalizeForm,
+  toLoanInput,
+  type FormValues,
+  type Money,
+  type RecurringPayment,
+} from './lib/form'
 import { buildShareUrl, clearSharedState, readSharedState } from './lib/share'
 import { deleteView, loadDraft, loadViews, saveDraft, saveView, type SavedView } from './lib/views'
 import { formatMoney, formatPercent } from './lib/format'
@@ -68,7 +77,7 @@ function Calculator({ defaults }: { defaults: Defaults }) {
     if (shared) return { ...shared, viewName: null }
     const draft = loadDraft()
     return {
-      form: draft?.form ?? EMPTY_FORM,
+      form: normalizeForm(draft?.form),
       config: draft?.config ?? defaults.config,
       stressed: draft?.stressed ?? false,
       viewName: draft?.viewName ?? null,
@@ -100,7 +109,7 @@ function Calculator({ defaults }: { defaults: Defaults }) {
   const loadView = (name: string) => {
     const view = views.find((v) => v.name === name)
     if (!view) return
-    setInput(view.form)
+    setInput(normalizeForm(view.form))
     setConfig(view.config)
     setStressed(view.stressed)
     setViewName(view.name)
@@ -318,6 +327,7 @@ function Calculator({ defaults }: { defaults: Defaults }) {
             pending={pending}
             salaries={input.salaries}
             studentLoans={input.studentLoans}
+            recurringPayments={input.recurringPayments}
             onSalaryChange={(index, salary) => {
               const salaries: [Money, Money] = [...input.salaries]
               salaries[index] = salary
@@ -327,6 +337,11 @@ function Calculator({ defaults }: { defaults: Defaults }) {
               const studentLoans: [Money, Money] = [...input.studentLoans]
               studentLoans[index] = studentLoan
               patch({ studentLoans })
+            }}
+            onRecurringChange={(index, payments) => {
+              const recurringPayments: FormValues['recurringPayments'] = [...input.recurringPayments]
+              recurringPayments[index] = payments
+              patch({ recurringPayments })
             }}
           />
         ) : (
@@ -344,16 +359,20 @@ function Results({
   pending,
   salaries,
   studentLoans,
+  recurringPayments,
   onSalaryChange,
   onStudentLoanChange,
+  onRecurringChange,
 }: {
   schedule: Schedule
   stressed: boolean
   pending: boolean
   salaries: [Money, Money]
   studentLoans: [Money, Money]
+  recurringPayments: FormValues['recurringPayments']
   onSalaryChange: (index: 0 | 1, salary: Money) => void
   onStudentLoanChange: (index: 0 | 1, studentLoan: Money) => void
+  onRecurringChange: (index: 0 | 1, payments: RecurringPayment[]) => void
 }) {
   const first = schedule.monthlyCost[1]!
   const last = schedule.monthlyCost[schedule.months]!
@@ -435,8 +454,10 @@ function Results({
         schedule={schedule}
         salaries={salaries}
         studentLoans={studentLoans}
+        recurringPayments={recurringPayments}
         onSalaryChange={onSalaryChange}
         onStudentLoanChange={onStudentLoanChange}
+        onRecurringChange={onRecurringChange}
       />
     </div>
   )
@@ -447,14 +468,18 @@ function Owners({
   schedule,
   salaries,
   studentLoans,
+  recurringPayments,
   onSalaryChange,
   onStudentLoanChange,
+  onRecurringChange,
 }: {
   schedule: Schedule
   salaries: [Money, Money]
   studentLoans: [Money, Money]
+  recurringPayments: FormValues['recurringPayments']
   onSalaryChange: (index: 0 | 1, salary: Money) => void
   onStudentLoanChange: (index: 0 | 1, studentLoan: Money) => void
+  onRecurringChange: (index: 0 | 1, payments: RecurringPayment[]) => void
 }) {
   return (
     <section className="owners">
@@ -475,8 +500,10 @@ function Owners({
               otherIndex={i === 0 ? 1 : 0}
               salary={salaries[i]!}
               studentLoan={studentLoans[i]!}
+              recurringPayments={recurringPayments[i]!}
               onSalaryChange={(salary) => onSalaryChange(i as 0 | 1, salary)}
               onStudentLoanChange={(studentLoan) => onStudentLoanChange(i as 0 | 1, studentLoan)}
+              onRecurringChange={(payments) => onRecurringChange(i as 0 | 1, payments)}
             />
           </Tabs.Panel>
         ))}
@@ -490,16 +517,20 @@ function Owner({
   otherIndex,
   salary,
   studentLoan,
+  recurringPayments,
   onSalaryChange,
   onStudentLoanChange,
+  onRecurringChange,
 }: {
   person: Person
   /** Index of the other owner, for the labels. */
   otherIndex: 0 | 1
   salary: Money
   studentLoan: Money
+  recurringPayments: RecurringPayment[]
   onSalaryChange: (salary: Money) => void
   onStudentLoanChange: (studentLoan: Money) => void
+  onRecurringChange: (payments: RecurringPayment[]) => void
 }) {
   const hasSalary = (salary ?? 0) > 0
   const other = `person ${otherIndex + 1}`
@@ -558,6 +589,11 @@ function Owner({
           onValueChange={onStudentLoanChange}
           step={500}
         />
+        <RecurringPayments
+          payments={recurringPayments}
+          onChange={onRecurringChange}
+          monthlyTotal={person.recurringMonthly}
+        />
         {hasSalary ? (
           <dl className="stats">
             <Stat label="Tabelltrekk / month" value={formatMoney(person.withholding)} />
@@ -565,8 +601,8 @@ function Owner({
             <Stat label="Net pay, regular month, with deduction" value={formatMoney(person.netMonthly)} emphasis />
             <Stat label="Tax / year" value={formatMoney(person.tax)} />
             <Stat label="Left after loan + expenses / month" value={formatMoney(person.leftAfterLoanAndExpenses)} />
-            {(studentLoan ?? 0) > 0 ? (
-              <Stat label="Left after loan + expenses, with student loan" value={formatMoney(person.leftAfterAll)} emphasis />
+            {(studentLoan ?? 0) > 0 || person.recurringMonthly > 0 ? (
+              <Stat label={describeLeftAfterAll(studentLoan, person.recurringMonthly)} value={formatMoney(person.leftAfterAll)} emphasis />
             ) : null}
           </dl>
         ) : (
@@ -575,6 +611,14 @@ function Owner({
       </div>
     </div>
   )
+}
+
+/** Label the bottom line by what it adds and takes away. */
+function describeLeftAfterAll(studentLoan: Money, recurringMonthly: number) {
+  const parts = ['loan', 'expenses']
+  if (recurringMonthly > 0) parts.push('recurring payments')
+  const label = `Left after ${parts.join(', ')}`
+  return (studentLoan ?? 0) > 0 ? `${label}, with student loan` : label
 }
 
 /** Describe the loan-to-value, and flag it when it's over the lending limit. */

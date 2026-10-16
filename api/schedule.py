@@ -92,6 +92,43 @@ def _pair(payload, key, default) -> list:
     return [_number({key: value}, key) for value in values]
 
 
+def _recurring(payload) -> list:
+    """Read each person's recurring payments as a monthly total.
+
+    Each payment is {"amount": NOK, "period": "month" | "year"}. A yearly
+    payment counts as a twelfth of itself each month.
+    """
+    lists = payload.get('recurringPayments', [[], []])
+
+    if not isinstance(lists, list) or len(lists) != 2:
+        raise RequestError('"recurringPayments" must be a list of two lists')
+
+    totals = []
+    for payments in lists:
+        if not isinstance(payments, list):
+            raise RequestError('"recurringPayments" must be a list of two lists')
+
+        total = 0
+        for payment in payments:
+            if not isinstance(payment, dict):
+                raise RequestError('Each recurring payment must be an object')
+
+            amount = _number(payment, 'amount', 0)
+            period = payment.get('period', 'month')
+
+            if amount < 0:
+                raise RequestError('A recurring payment cannot be negative')
+
+            if period not in ('month', 'year'):
+                raise RequestError('"period" must be "month" or "year"')
+
+            total += amount if period == 'month' else amount / 12
+
+        totals.append(total)
+
+    return totals
+
+
 def _equities(payload, share) -> list:
     """Read each person's equity, or split a single "equity" by share."""
     if 'equities' in payload:
@@ -116,8 +153,8 @@ def _annual_interest(interest) -> list:
 
 
 def _person(
-    share, equity, price, loan_amount, salary, student_loan, joint_expenses,
-    schedules, annual_interest, deduction_rate,
+    share, equity, price, loan_amount, salary, student_loan, recurring,
+    joint_expenses, schedules, annual_interest, deduction_rate,
 ) -> dict:
     """Project one owner's part of the loan and its effect on their pay.
 
@@ -182,9 +219,13 @@ def _person(
         # Student loan received from Lånekassen: tax-free income on top of
         # net pay, outside the tax estimate.
         'studentLoan': student_loan,
+        # Their own recurring payments, such as subscriptions, per month.
+        'recurringMonthly': round(recurring, 2),
+        # Left after the loan, joint expenses and recurring payments, with
+        # the student loan added.
         'leftAfterAll': round(
             pay['net_regular_month'] + student_loan
-            - monthly_cost - monthly_expenses,
+            - monthly_cost - monthly_expenses - recurring,
             2,
         ),
     }
@@ -277,6 +318,7 @@ def build_response(payload) -> dict:
 
     salaries = _pair(payload, 'salaries', [0, 0])
     student_loans = _pair(payload, 'studentLoans', [0, 0])
+    recurring = _recurring(payload)
 
     lower_rate = _number(overrides, 'lowerQuantileRate', LOWER_QUANTILE_RATE)
     upper_rate = _number(overrides, 'upperQuantileRate', UPPER_QUANTILE_RATE)
@@ -312,11 +354,12 @@ def build_response(payload) -> dict:
         'persons': [
             _person(
                 person_share, person_equity, price, loan.amount, salary,
-                student_loan, apartment.joint_expenses, schedules,
-                annual_interest, deduction_rate,
+                student_loan, person_recurring, apartment.joint_expenses,
+                schedules, annual_interest, deduction_rate,
             )
-            for person_share, person_equity, salary, student_loan in zip(
-                (share, 1 - share), equities, salaries, student_loans
+            for person_share, person_equity, salary, student_loan, person_recurring
+            in zip(
+                (share, 1 - share), equities, salaries, student_loans, recurring
             )
         ],
         # Monthly cost at the lower and upper quantile of the projected rate.

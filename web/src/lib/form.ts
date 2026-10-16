@@ -3,6 +3,14 @@ import type { LoanInput } from './api'
 /** A money field that may still be blank. */
 export type Money = number | null
 
+/** A named outgoing such as a subscription or another loan. */
+export interface RecurringPayment {
+  id: string
+  name: string
+  amount: Money
+  period: 'month' | 'year'
+}
+
 /** What the form holds: the loan inputs, with the money fields allowed blank. */
 export interface FormValues {
   price: Money
@@ -17,6 +25,7 @@ export interface FormValues {
   ownershipShare: number
   salaries: [Money, Money]
   studentLoans: [Money, Money]
+  recurringPayments: [RecurringPayment[], RecurringPayment[]]
 }
 
 /** The starting point: no personal figures, sensible loan terms. */
@@ -33,7 +42,14 @@ export const EMPTY_FORM: FormValues = {
   ownershipShare: 0.5,
   salaries: [null, null],
   studentLoans: [null, null],
+  recurringPayments: [[], []],
 }
+
+/** Fill in fields an older draft, view or link may not have. */
+export const normalizeForm = (form: Partial<FormValues> | undefined): FormValues => ({
+  ...EMPTY_FORM,
+  ...form,
+})
 
 /** The form can be projected once there is a purchase price. */
 export const isReady = (form: FormValues) => (form.price ?? 0) > 0
@@ -54,5 +70,9 @@ export function toLoanInput(form: FormValues): LoanInput {
     ownershipShare: form.ownershipShare,
     salaries: pair(form.salaries),
     studentLoans: pair(form.studentLoans),
+    recurringPayments: [
+      form.recurringPayments[0].map(({ amount, period }) => ({ amount: amount ?? 0, period })),
+      form.recurringPayments[1].map(({ amount, period }) => ({ amount: amount ?? 0, period })),
+    ],
   }
 }

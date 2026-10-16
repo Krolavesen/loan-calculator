@@ -332,6 +332,37 @@ class OwnershipTest(unittest.TestCase):
         self.assertEqual(one['tax'], two['tax'])
         self.assertEqual(one['netMonthly'], two['netMonthly'])
 
+    def test_recurring_payments_come_off_what_is_left(self):
+        payments = [
+            [{'amount': 129, 'period': 'month'}, {'amount': 1200, 'period': 'year'}],
+            [],
+        ]
+        base = build_response({**PAYLOAD, 'salaries': [720_000, 720_000]})['persons']
+        body = build_response(
+            {**PAYLOAD, 'salaries': [720_000, 720_000], 'recurringPayments': payments}
+        )
+        one, two = body['persons']
+        self.assertEqual(one['recurringMonthly'], 229)
+        self.assertEqual(two['recurringMonthly'], 0)
+        self.assertAlmostEqual(one['leftAfterAll'], base[0]['leftAfterAll'] - 229, places=2)
+        self.assertAlmostEqual(two['leftAfterAll'], base[1]['leftAfterAll'], places=2)
+        # They do not touch the tax estimate.
+        self.assertEqual(one['tax'], base[0]['tax'])
+
+    def test_recurring_payments_default_to_none(self):
+        persons = build_response(PAYLOAD)['persons']
+        self.assertEqual([p['recurringMonthly'] for p in persons], [0, 0])
+
+    def test_rejects_malformed_recurring_payments(self):
+        for bad in (
+            [[]],
+            [[{'amount': -1}], []],
+            [[{'amount': 100, 'period': 'week'}], []],
+            [['x'], []],
+        ):
+            with self.assertRaises(RequestError, msg=bad):
+                build_response({**PAYLOAD, 'recurringPayments': bad})
+
     def test_rejects_a_share_outside_zero_to_one(self):
         with self.assertRaises(RequestError):
             build_response({**PAYLOAD, 'ownershipShare': 1.5})

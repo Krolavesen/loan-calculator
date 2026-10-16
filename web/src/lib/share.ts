@@ -1,5 +1,5 @@
 import type { Config } from './api'
-import { EMPTY_FORM, type FormValues } from './form'
+import { normalizeForm, type FormValues } from './form'
 
 /**
  * Share a calculation as a link. The inputs are encoded into the URL's hash,
@@ -46,7 +46,7 @@ export function readSharedState(defaults: Config): SharedState | null {
   try {
     const parsed = JSON.parse(decode(value)) as Partial<SharedState>
     return {
-      form: { ...EMPTY_FORM, ...parsed.form },
+      form: normalizeForm(parsed.form),
       config: { ...defaults, ...parsed.config },
       stressed: parsed.stressed === true,
     }

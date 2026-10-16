@@ -23,6 +23,13 @@ export interface LoanInput {
   salaries: [number, number]
   /** Monthly student loan received from Lånekassen by person 1 and person 2, in NOK. */
   studentLoans: [number, number]
+  /** Recurring payments for person 1 and person 2. */
+  recurringPayments: [RecurringPaymentInput[], RecurringPaymentInput[]]
+}
+
+export interface RecurringPaymentInput {
+  amount: number
+  period: 'month' | 'year'
 }
 
 /** One owner's share of the loan and its effect on their pay. */
@@ -63,7 +70,9 @@ export interface Person {
   leftAfterLoanAndExpenses: number
   /** Monthly student loan received, tax-free and outside the tax estimate. */
   studentLoan: number
-  /** Left after the loan and joint expenses, with the student loan added. */
+  /** Their recurring payments, per month. */
+  recurringMonthly: number
+  /** Left after the loan, joint expenses and recurring payments, with the student loan added. */
   leftAfterAll: number
 }
 
