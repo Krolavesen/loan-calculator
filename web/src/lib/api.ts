@@ -19,6 +19,8 @@ export interface LoanInput {
   includeDeduction: boolean
   /** Person 1's share of the loan as a decimal; person 2 owns the rest. */
   ownershipShare: number
+  /** Person 1's share of the bank loan, or null to derive it from ownership and equity. */
+  loanShare: number | null
   /** Gross annual salary for person 1 and person 2, in NOK. */
   salaries: [number, number]
   /** Monthly student loan received from Lånekassen by person 1 and person 2, in NOK. */
@@ -44,7 +46,7 @@ export interface Person {
   bankLoan: number
   /** Their part of the bank loan as a share of the whole loan. */
   loanShare: number
-  /** Owed to the other owner beyond the bank loan (positive), or lent to them (negative). */
+  /** Settled with the other owner: owed to them (positive) or lent to them (negative). */
   privateLoan: number
   grossSalary: number
   /** Their share of the month-1 loan cost. */
@@ -132,6 +134,8 @@ export interface Schedule {
   monthlyCostWithExpenses: number[]
   /** Interest paid in each year of the loan, year 1 first. */
   annualInterest: number[]
+  /** Whether `loanShare` was set by hand rather than derived. */
+  loanShareSetByHand: boolean
   persons: [Person, Person]
   quantiles: Quantiles
 }

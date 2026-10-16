@@ -282,6 +282,27 @@ body {
   gap: 14px;
 }
 
+.field-with-action {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.link-button {
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.link-button:hover {
+  text-decoration: underline;
+}
+
 /* --- Fields ------------------------------------------------------------- */
 
 .field {

@@ -23,6 +23,8 @@ export interface FormValues {
   includeDividend: boolean
   includeDeduction: boolean
   ownershipShare: number
+  /** Person 1's share of the bank loan, or null to follow ownership and equity. */
+  loanShare: number | null
   salaries: [Money, Money]
   studentLoans: [Money, Money]
   recurringPayments: [RecurringPayment[], RecurringPayment[]]
@@ -40,6 +42,7 @@ export const EMPTY_FORM: FormValues = {
   includeDividend: true,
   includeDeduction: true,
   ownershipShare: 0.5,
+  loanShare: null,
   salaries: [null, null],
   studentLoans: [null, null],
   recurringPayments: [[], []],
@@ -68,6 +71,7 @@ export function toLoanInput(form: FormValues): LoanInput {
     includeDividend: form.includeDividend,
     includeDeduction: form.includeDeduction,
     ownershipShare: form.ownershipShare,
+    loanShare: form.loanShare,
     salaries: pair(form.salaries),
     studentLoans: pair(form.studentLoans),
     recurringPayments: [

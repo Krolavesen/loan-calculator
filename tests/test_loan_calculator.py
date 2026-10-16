@@ -254,6 +254,34 @@ class OwnershipTest(unittest.TestCase):
         self.assertEqual(two['annualInterest'], 0)
         self.assertEqual(two['annualDeduction'], 0)
 
+    def test_loan_split_can_be_set_by_hand(self):
+        body = build_response(
+            {**PAYLOAD, 'price': 6.55e6, 'equities': [2e5, 2.5e6], 'loanShare': 0.5}
+        )
+        one, two = body['persons']
+        self.assertTrue(body['loanShareSetByHand'])
+        self.assertEqual([one['loanShare'], two['loanShare']], [0.5, 0.5])
+        self.assertEqual([one['bankLoan'], two['bankLoan']], [1.925e6, 1.925e6])
+        # Person 1 needs 3 075 000 but borrows 1 925 000 from the bank, so
+        # they owe person 2 the rest; it nets to zero between them.
+        self.assertEqual(one['privateLoan'], 1.15e6)
+        self.assertEqual(two['privateLoan'], -1.15e6)
+        # Costs and the deduction follow the bank loan split.
+        self.assertAlmostEqual(one['monthlyCost'], two['monthlyCost'], places=2)
+        self.assertAlmostEqual(one['annualInterest'], two['annualInterest'], places=2)
+
+    def test_loan_split_matching_the_derived_one_changes_nothing(self):
+        derived = build_response({**PAYLOAD, 'ownershipShare': 0.3})
+        by_hand = build_response({**PAYLOAD, 'ownershipShare': 0.3, 'loanShare': 0.3})
+        self.assertFalse(derived['loanShareSetByHand'])
+        for a, b in zip(derived['persons'], by_hand['persons']):
+            self.assertAlmostEqual(a['bankLoan'], b['bankLoan'], places=2)
+            self.assertAlmostEqual(a['privateLoan'], b['privateLoan'], places=2)
+
+    def test_rejects_a_loan_share_outside_zero_to_one(self):
+        with self.assertRaises(RequestError):
+            build_response({**PAYLOAD, 'loanShare': -0.1})
+
     def test_single_equity_is_split_by_ownership_share(self):
         body = build_response({**PAYLOAD, 'ownershipShare': 0.2})
         one, two = body['persons']

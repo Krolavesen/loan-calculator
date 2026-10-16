@@ -72,6 +72,19 @@ def _flag(payload, key, default=True):
     return value
 
 
+def _loan_share(payload):
+    """Read person 1's share of the bank loan, or None to derive it."""
+    if payload.get('loanShare') is None:
+        return None
+
+    share = _number(payload, 'loanShare')
+
+    if not 0 <= share <= 1:
+        raise RequestError('"loanShare" must be between 0 and 1')
+
+    return share
+
+
 def _share(payload) -> float:
     """Read person 1's share of the loan from the payload."""
     share = _number(payload, 'ownershipShare', 0.5)
@@ -155,6 +168,7 @@ def _annual_interest(interest) -> list:
 def _person(
     share, equity, price, loan_amount, salary, student_loan, recurring,
     joint_expenses, schedules, annual_interest, deduction_rate,
+    loan_share_override=None,
 ) -> dict:
     """Project one owner's part of the loan and its effect on their pay.
 
@@ -168,10 +182,19 @@ def _person(
     If one owner's equity exceeds their share, the other takes the whole
     bank loan and owes them the rest privately. That private balance is
     reported separately and gets no interest or deduction here.
+
+    `loan_share_override` sets their share of the bank loan by hand
+    instead. What they need beyond their equity and what they borrow from
+    the bank can then differ, and the difference is the private balance.
     """
     loan = share * price - equity
-    bank_loan = min(max(loan, 0), loan_amount)
-    loan_share = bank_loan / loan_amount if loan_amount else 0
+
+    if loan_share_override is None:
+        bank_loan = min(max(loan, 0), loan_amount)
+        loan_share = bank_loan / loan_amount if loan_amount else 0
+    else:
+        loan_share = loan_share_override
+        bank_loan = loan_share * loan_amount
 
     interest_year_one = (
         annual_interest[0] * loan_share if annual_interest else 0
@@ -275,6 +298,7 @@ def build_response(payload) -> dict:
     price = _number(payload, 'price')
     years = _number(payload, 'years')
     share = _share(payload)
+    loan_share = _loan_share(payload)
     equities = _equities(payload, share)
     equity = sum(equities)
     borrowers = _number(payload, 'borrowers')
@@ -350,16 +374,21 @@ def build_response(payload) -> dict:
         ),
         # Interest paid in each year of the loan, year 1 first.
         'annualInterest': [round(i, 2) for i in annual_interest],
+        # Whether the bank loan split was set by hand, not derived.
+        'loanShareSetByHand': loan_share is not None,
         # Each owner's share: person 1 owns `ownershipShare`, person 2 the rest.
         'persons': [
             _person(
                 person_share, person_equity, price, loan.amount, salary,
                 student_loan, person_recurring, apartment.joint_expenses,
-                schedules, annual_interest, deduction_rate,
+                schedules, annual_interest, deduction_rate, person_loan_share,
             )
-            for person_share, person_equity, salary, student_loan, person_recurring
-            in zip(
-                (share, 1 - share), equities, salaries, student_loans, recurring
+            for (
+                person_share, person_equity, salary, student_loan,
+                person_recurring, person_loan_share,
+            ) in zip(
+                (share, 1 - share), equities, salaries, student_loans, recurring,
+                (None, None) if loan_share is None else (loan_share, 1 - loan_share),
             )
         ],
         # Monthly cost at the lower and upper quantile of the projected rate.

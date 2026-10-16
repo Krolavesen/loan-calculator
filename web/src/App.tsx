@@ -212,12 +212,17 @@ function Calculator({ defaults }: { defaults: Defaults }) {
           />
           <CountField
             label="Ownership split"
-            description={`Person 1 owns ${formatPercent(input.ownershipShare)}, person 2 ${formatPercent(1 - input.ownershipShare)}. Each borrows their share of the price less their equity.`}
+            description={`Person 1 owns ${formatPercent(input.ownershipShare)}, person 2 ${formatPercent(1 - input.ownershipShare)}.${input.loanShare === null ? ' Each borrows their share of the price less their equity.' : ''}`}
             value={Math.round(input.ownershipShare * 100)}
             onValueChange={(percent) => patch({ ownershipShare: percent / 100 })}
             min={0}
             max={100}
             suffix="% person 1"
+          />
+          <LoanSplitField
+            loanShare={input.loanShare}
+            derived={schedule && !schedule.loanShareSetByHand ? schedule.persons[0].loanShare : null}
+            onChange={(loanShare) => patch({ loanShare })}
           />
           <MoneyField
             label="Deposit last calendar year"
@@ -546,15 +551,16 @@ function Owner({
           emphasis
         />
         {person.privateLoan > 0 ? (
-          <Stat label={`Owes ${other} on top`} value={formatMoney(person.privateLoan)} />
+          <Stat label={`Owes ${other}`} value={formatMoney(person.privateLoan)} />
         ) : person.privateLoan < 0 ? (
           <Stat label={`Lends to ${other}`} value={formatMoney(-person.privateLoan)} />
         ) : null}
       </dl>
-      {person.privateLoan < 0 ? (
+      {person.privateLoan !== 0 ? (
         <p className="field-hint">
-          Their equity covers more than their share of the price. {capitalize(other)} takes the whole bank
-          loan and owes them the rest privately, which gets no interest or tax deduction here.
+          Their equity and bank loan don't add up to their {formatPercent(person.share)} of the price, so{' '}
+          {person.privateLoan > 0 ? `they owe ${other}` : `${other} owes them`} the difference. That is
+          settled between you and gets no interest or tax deduction here.
         </p>
       ) : null}
 
@@ -613,6 +619,50 @@ function Owner({
   )
 }
 
+/**
+ * Person 1's share of the bank loan. It follows ownership and equity until
+ * edited, then stays where it's put until reset.
+ */
+function LoanSplitField({
+  loanShare,
+  derived,
+  onChange,
+}: {
+  loanShare: number | null
+  /** The split derived from ownership and equity, once the API has answered. */
+  derived: number | null
+  onChange: (loanShare: number | null) => void
+}) {
+  const [lastDerived, setLastDerived] = useState(derived ?? 0.5)
+  if (derived !== null && derived !== lastDerived) setLastDerived(derived)
+
+  const shown = loanShare ?? lastDerived
+  const split = `person 1 borrows ${formatPercent(shown)}, person 2 ${formatPercent(1 - shown)}`
+
+  return (
+    <div className="field-with-action">
+      <CountField
+        label="Loan split"
+        description={
+          loanShare === null
+            ? `Follows ownership and equity: ${split}.`
+            : `Set by hand: ${split}. Any difference from what each needs is settled between you.`
+        }
+        value={Math.round(shown * 100)}
+        onValueChange={(percent) => onChange(percent / 100)}
+        min={0}
+        max={100}
+        suffix="% person 1"
+      />
+      {loanShare !== null ? (
+        <button type="button" className="link-button" onClick={() => onChange(null)}>
+          Match ownership and equity
+        </button>
+      ) : null}
+    </div>
+  )
+}
+
 /** Label the bottom line by what it adds and takes away. */
 function describeLeftAfterAll(studentLoan: Money, recurringMonthly: number) {
   const parts = ['loan', 'expenses']
@@ -629,8 +679,6 @@ function describeLoanToValue(loanToValue: number) {
     ? `${summary} Over the ${formatPercent(MAX_LOAN_TO_VALUE)} limit.`
     : summary
 }
-
-const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1)
 
 /** Format the forecast band for one month as "9 514–11 003 kr". */
 function formatRange(quantiles: Schedule['quantiles'], month: number) {
