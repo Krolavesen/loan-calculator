@@ -11,6 +11,7 @@ import { ToggleField } from './components/ToggleField'
 import { ViewsBar } from './components/ViewsBar'
 import { fetchDefaults, type Config, type Defaults, type Person, type Schedule } from './lib/api'
 import { EMPTY_FORM, isReady, toLoanInput, type FormValues, type Money } from './lib/form'
+import { buildShareUrl, clearSharedState, readSharedState } from './lib/share'
 import { deleteView, loadDraft, loadViews, saveDraft, saveView, type SavedView } from './lib/views'
 import { formatMoney, formatPercent } from './lib/format'
 import { toEffectiveRate, toNominalRate } from './lib/rates'
@@ -61,13 +62,26 @@ export function App() {
 }
 
 function Calculator({ defaults }: { defaults: Defaults }) {
-  // Pick up where you left off in this browser, or start blank.
-  const [draft] = useState(loadDraft)
-  const [input, setInput] = useState<FormValues>(draft?.form ?? EMPTY_FORM)
-  const [config, setConfig] = useState<Config>(draft?.config ?? defaults.config)
-  const [stressed, setStressed] = useState(draft?.stressed ?? false)
-  const [viewName, setViewName] = useState<string | null>(draft?.viewName ?? null)
+  // A shared link wins; otherwise pick up where you left off, or start blank.
+  const [initial] = useState(() => {
+    const shared = readSharedState(defaults.config)
+    if (shared) return { ...shared, viewName: null }
+    const draft = loadDraft()
+    return {
+      form: draft?.form ?? EMPTY_FORM,
+      config: draft?.config ?? defaults.config,
+      stressed: draft?.stressed ?? false,
+      viewName: draft?.viewName ?? null,
+    }
+  })
+  const [input, setInput] = useState<FormValues>(initial.form)
+  const [config, setConfig] = useState<Config>(initial.config)
+  const [stressed, setStressed] = useState(initial.stressed)
+  const [viewName, setViewName] = useState<string | null>(initial.viewName)
   const [views, setViews] = useState<SavedView[]>(loadViews)
+
+  // Once a shared link is loaded, edits shouldn't leave a stale link behind.
+  useEffect(clearSharedState, [])
 
   useEffect(() => {
     saveDraft({ form: input, config, stressed, viewName })
@@ -111,6 +125,16 @@ function Calculator({ defaults }: { defaults: Defaults }) {
           setConfig(defaults.config)
           setStressed(false)
           setViewName(null)
+        }}
+        onShare={async () => {
+          const url = buildShareUrl({ form: input, config, stressed })
+          try {
+            await navigator.clipboard.writeText(url)
+            return true
+          } catch {
+            window.history.replaceState(null, '', url)
+            return false
+          }
         }}
       />
     <div className="layout">

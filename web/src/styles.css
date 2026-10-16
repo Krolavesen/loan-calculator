@@ -164,6 +164,7 @@ body {
 
 .views-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
