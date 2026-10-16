@@ -19,7 +19,9 @@ deployed to Vercel alongside the Python model.
 Nowhere in here. The frontend is a thin client over `/api/schedule`, a Vercel
 Python Function that calls `loan_calculator.py` at the repo root. `src/lib/api.ts`
 holds the request and response types, and nothing else in `src/` knows how a
-loan works.
+loan works. The one exception is `src/lib/rates.ts`, which converts between
+the nominal and effective rate so the two inputs can update each other as you
+type.
 
 - `GET /api/schedule` returns the defaults from `config.py`, which seed the
   equity input and the **Assumptions** panel.

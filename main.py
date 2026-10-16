@@ -28,19 +28,6 @@ loan = Loan(
     years=30
 )
 
-# Lower quantile in 2027/28.
-lower = Loan(
-    amount=osterhaus_gate_8b.price - LoanBorrower.joint_savings,
-    nominal_rate=0.0225,
-    years=30
-)
-# Upper quantile in 2027/28
-upper = Loan(
-    amount=osterhaus_gate_8b.price - LoanBorrower.joint_savings,
-    nominal_rate=0.0375,
-    years=30
-)
-
 # Customer dividend.
 dividend = CustomerDividend(
     deposit=0,
@@ -54,31 +41,18 @@ expenses = MonthlyCost(
     customer_dividend=dividend
 )
 
-# Upper quantile of projected interest in 2027/28.
-upper_expenses = MonthlyCost(
-    loan=upper,
-    apartment=osterhaus_gate_8b,
-    customer_dividend=dividend
-)
-# Lower quantile of projected interest in 2027/28.
-lower_expenses = MonthlyCost(
-    loan=lower,
-    apartment=osterhaus_gate_8b,
-    customer_dividend=dividend
-)
-
 # Number of months in the payment schedule.
 n = loan.get_number_of_months()
 
-# Months 0 through 360.
-month = np.arange(n + 1)
+# Months 1 through 360. Month 0 is the opening balance, with no payment.
+month = np.arange(1, n + 1)
 
-# Monthly expenses for each month in the payment schedule.
-cost = expenses.get_monthly_cost()
-
-# Upepr and lower bound of projected interest in 27/28.
-upper_cost = upper_expenses.get_monthly_cost()
-lower_cost = lower_expenses.get_monthly_cost()
+# Monthly expenses for each month in the payment schedule, with the
+# lower and upper quantile of projected interest in 2027/28.
+estimate = expenses.get_quantile_estimate()
+cost = estimate['baseline'][1:]
+upper_cost = estimate['upper'][1:]
+lower_cost = estimate['lower'][1:]
 
 if __name__ == "__main__":
 

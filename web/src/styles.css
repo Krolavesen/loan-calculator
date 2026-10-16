@@ -9,6 +9,8 @@
   --text-muted: #5d6673;
   --accent: #2f5bd9;
   --accent-soft: rgb(47 91 217 / 0.12);
+  --band: #b8701c;
+  --band-soft: rgb(217 140 47 / 0.18);
   --danger: #b3261e;
   --radius: 10px;
 
@@ -27,6 +29,8 @@
     --text-muted: #98a2b1;
     --accent: #7ea2ff;
     --accent-soft: rgb(126 162 255 / 0.16);
+    --band: #f0a95a;
+    --band-soft: rgb(240 169 90 / 0.18);
     --danger: #f2857c;
   }
 }
@@ -445,6 +449,77 @@ body {
   stroke: var(--accent);
   stroke-width: 2;
   stroke-linejoin: round;
+}
+
+.chart-band {
+  fill: var(--band-soft);
+}
+
+.chart-band-edge {
+  fill: none;
+  stroke: var(--band);
+  stroke-width: 1;
+  stroke-dasharray: 4 3;
+}
+
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  margin: 8px 0 0;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.chart-key {
+  display: inline-block;
+  width: 16px;
+}
+
+.chart-key + .chart-key,
+.chart-legend .chart-key-band {
+  margin-left: 8px;
+}
+
+.chart-key-line {
+  height: 2px;
+  background: var(--accent);
+}
+
+.chart-key-band {
+  height: 10px;
+  background: var(--band-soft);
+  border: 1px dashed var(--band);
+}
+
+.chart-bar {
+  fill: var(--accent-soft);
+  stroke: var(--accent);
+  stroke-width: 1;
+}
+
+.chart-bar-active {
+  fill: var(--accent);
+}
+
+.owners {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+
+.owner .chart,
+.owner .stats + .stats {
+  margin-top: 16px;
+}
+
+.owner-pay {
+  margin-top: 16px;
+}
+
+.owner-pay .stats {
+  margin-top: 12px;
 }
 
 .chart-crosshair {

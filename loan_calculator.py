@@ -1,6 +1,9 @@
+import copy
+
 import numpy as np
 from config import MAX_DEPOSIT, MAX_LOAN_PER_BORROWER
 from config import DIVIDEND_RATE, DEDUCTION_RATE
+from config import LOWER_QUANTILE_RATE, UPPER_QUANTILE_RATE
 
 
 class Apartment:
@@ -232,8 +235,9 @@ class MonthlyCost:
         Returns
         -------
         np.ndarray
-            Outstanding loan balance for each month in the payment 
-            schedule in NOK.
+            Outstanding loan balance for each month in the payment
+            schedule in NOK. Month 0 is the opening balance and month k
+            is the balance after the k-th payment.
         """
         annuity = self.loan.get_annuity()
         interest = self.loan.get_monthly_rate()
@@ -254,12 +258,14 @@ class MonthlyCost:
         Returns
         -------
         np.ndarray
-            Interest payment for each month in the payment schedule 
-            in NOK.
+            Interest payment for each month in the payment schedule
+            in NOK. Month k pays interest on the balance after payment
+            k - 1, and month 0 has no payment.
         """
         balance = self._get_outstanding_balance_schedule()
-        interest = self.loan.get_monthly_rate()
-        return balance * interest
+        interest = np.zeros_like(balance)
+        interest[1:] = balance[:-1] * self.loan.get_monthly_rate()
+        return interest
 
     def _get_customer_dividend(self) -> np.ndarray:
         """Calculate the projected customer dividend schedule.
@@ -267,15 +273,18 @@ class MonthlyCost:
         Returns
         -------
         np.ndarray
-            Customer dividend for each month in the payment schedule 
-            in NOK.
+            Customer dividend for each month in the payment schedule
+            in NOK. Like interest, month k is based on the balance after
+            payment k - 1, and month 0 has no payment.
         """
         balance = self._get_outstanding_balance_schedule()
+        dividend = np.zeros_like(balance)
 
         if not self.include_dividend:
-            return np.zeros_like(balance)
+            return dividend
 
-        return self.customer_dividend.get_dividend(balance)
+        dividend[1:] = self.customer_dividend.get_dividend(balance[:-1])
+        return dividend
 
     def _get_tax_deduction(self) -> np.ndarray:
         """Calculate the projected tax deduction schedule.
@@ -299,6 +308,7 @@ class MonthlyCost:
         -------
         np.ndarray
             Monthly cost for each month in the payment schedule in NOK.
+            Month 0 has no payment, so its cost is 0.
         """
         annuity = self.loan.get_annuity()
         deduction = self._get_tax_deduction()
@@ -307,7 +317,59 @@ class MonthlyCost:
             self.apartment.joint_expenses
             / self.customer_dividend.borrowers  # change to borrowers from Borrower object
         )
-        return annuity - deduction  # + joint expenses - dividend
+        monthly_cost = annuity - deduction - dividend  # + joint expenses
+        monthly_cost[0] = 0
+        return monthly_cost
+
+    def get_quantile_estimate(
+        self,
+        lower_rate=LOWER_QUANTILE_RATE,
+        upper_rate=UPPER_QUANTILE_RATE,
+    ) -> dict:
+        """Project the monthly cost at a lower and an upper quantile of
+        the projected nominal rate, alongside the baseline.
+
+        Parameters
+        ----------
+        lower_rate : float, optional
+            Lower quantile of the projected nominal rate expressed as a
+            decimal. Defaults to LOWER_QUANTILE_RATE in config.py.
+        upper_rate : float, optional
+            Upper quantile of the projected nominal rate expressed as a
+            decimal. Defaults to UPPER_QUANTILE_RATE in config.py.
+
+        Returns
+        -------
+        dict
+            Keys are 'lower', 'baseline' and 'upper'. Each value is the
+            monthly cost schedule as an np.ndarray, with the same loan
+            amount and length as the baseline loan.
+
+        Raises
+        ------
+        ValueError
+            Lower quantile rate cannot exceed the upper quantile rate.
+        """
+        if lower_rate > upper_rate:
+            raise ValueError(
+                'Lower quantile rate cannot exceed the upper quantile rate'
+            )
+
+        def cost_at(rate):
+            loan = Loan(
+                amount=self.loan.amount,
+                nominal_rate=rate,
+                years=self.loan.years,
+            )
+            expenses = copy.copy(self)
+            expenses.loan = loan
+            return expenses.get_monthly_cost()
+
+        return {
+            'lower': cost_at(lower_rate),
+            'baseline': self.get_monthly_cost(),
+            'upper': cost_at(upper_rate),
+        }
 
     def get_schedules(self) -> dict:
         """Collect every projected schedule in a single mapping.
