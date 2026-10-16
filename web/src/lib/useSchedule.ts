@@ -15,7 +15,7 @@ interface ScheduleState {
  * Project `input` through the Python API, debouncing edits and cancelling any
  * request that a newer edit has superseded.
  */
-export function useSchedule(input: LoanInput, config: Config): ScheduleState {
+export function useSchedule(input: LoanInput, config: Config, enabled = true): ScheduleState {
   const [state, setState] = useState<ScheduleState>({
     schedule: null,
     error: null,
@@ -27,9 +27,14 @@ export function useSchedule(input: LoanInput, config: Config): ScheduleState {
   latest.current = state
 
   // The effect depends on the values, not on the object identities.
-  const key = JSON.stringify({ input, config })
+  const key = JSON.stringify({ input, config, enabled })
 
   useEffect(() => {
+    if (!enabled) {
+      setState({ schedule: null, error: null, pending: false })
+      return
+    }
+
     const controller = new AbortController()
     setState((prev) => ({ ...prev, pending: true }))
 

@@ -4,8 +4,9 @@ import { NumberField } from '@base-ui/react/number-field'
 interface MoneyFieldProps {
   label: string
   description?: string
-  value: number
-  onValueChange: (value: number) => void
+  /** Null when the field is blank. */
+  value: number | null
+  onValueChange: (value: number | null) => void
   min?: number
   max?: number
   step?: number
@@ -25,7 +26,7 @@ export function MoneyField({
       <NumberField.Root
         className="number-field"
         value={value}
-        onValueChange={(next) => onValueChange(next ?? 0)}
+        onValueChange={(next) => onValueChange(next)}
         min={min}
         max={max}
         step={step}

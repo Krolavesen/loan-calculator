@@ -23,8 +23,9 @@ loan works. The one exception is `src/lib/rates.ts`, which converts between
 the nominal and effective rate so the two inputs can update each other as you
 type.
 
-- `GET /api/schedule` returns the defaults from `config.py`, which seed the
-  equity input and the **Assumptions** panel.
+- `GET /api/schedule` returns the rates from `config.py`, which seed the
+  **Assumptions** panel. The form itself starts blank; what you type is kept
+  in this browser as a draft, and you can save named views (`src/lib/views.ts`).
 - `POST /api/schedule` returns the projected balance, interest, dividend,
   deduction and monthly cost series.
 

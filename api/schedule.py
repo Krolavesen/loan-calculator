@@ -21,7 +21,6 @@ from tax import get_net_pay  # noqa: E402
 from config import (  # noqa: E402
     DEDUCTION_RATE,
     DIVIDEND_RATE,
-    EQUITIES,
     LOWER_QUANTILE_RATE,
     MAX_DEPOSIT,
     MAX_LOAN_PER_BORROWER,
@@ -32,7 +31,6 @@ from config import (  # noqa: E402
 MAX_YEARS = 50
 
 DEFAULTS = {
-    'equities': EQUITIES,
     'config': {
         'dividendRate': DIVIDEND_RATE,
         'deductionRate': DEDUCTION_RATE,

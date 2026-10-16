@@ -122,6 +122,89 @@ body {
   color: var(--text-muted);
 }
 
+/* --- Saved views -------------------------------------------------------- */
+
+.views {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) minmax(160px, 1.4fr) auto;
+  gap: 12px 16px;
+  align-items: end;
+  margin-bottom: 20px;
+}
+
+@media (max-width: 700px) {
+  .views {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.views-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.views-select,
+.views-input {
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
+}
+
+.views-select:focus-visible,
+.views-input:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.views-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.views-hint {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+.button {
+  height: 38px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.button:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.button-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.button-primary:hover:not(:disabled) {
+  color: #fff;
+  filter: brightness(1.08);
+}
+
 /* --- Fields ------------------------------------------------------------- */
 
 .field {

@@ -96,7 +96,6 @@ export interface Quantiles {
 
 /** Defaults served from `config.py`. */
 export interface Defaults {
-  equities: [number, number]
   config: Config
 }
 

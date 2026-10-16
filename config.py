@@ -15,9 +15,6 @@ DIVIDEND_RATE = 0.0035
 # Configure tax deduction rate.
 DEDUCTION_RATE = 0.22
 
-# Configure equity per person (egenkapital), person 1 first.
-EQUITIES = [3e5, 2.6e6]
-
 # Configure lower and upper quantile of the projected nominal rate in 2027/28.
 LOWER_QUANTILE_RATE = 0.0225
 UPPER_QUANTILE_RATE = 0.0375

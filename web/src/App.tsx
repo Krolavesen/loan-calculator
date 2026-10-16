@@ -8,25 +8,13 @@ import { RateField } from './components/RateField'
 import { ScheduleTable } from './components/ScheduleTable'
 import { YearBarChart } from './components/YearBarChart'
 import { ToggleField } from './components/ToggleField'
-import { fetchDefaults, type Config, type Defaults, type LoanInput, type Person, type Schedule } from './lib/api'
+import { ViewsBar } from './components/ViewsBar'
+import { fetchDefaults, type Config, type Defaults, type Person, type Schedule } from './lib/api'
+import { EMPTY_FORM, isReady, toLoanInput, type FormValues, type Money } from './lib/form'
+import { deleteView, loadDraft, loadViews, saveDraft, saveView, type SavedView } from './lib/views'
 import { formatMoney, formatPercent } from './lib/format'
 import { toEffectiveRate, toNominalRate } from './lib/rates'
 import { useSchedule } from './lib/useSchedule'
-
-/** The Osterhaus gate 8B example from `main.py`. Equity comes from `config.py`. */
-const EXAMPLE = {
-  price: 6.55e6,
-  jointExpenses: 3929,
-  nominalRate: 0.035,
-  years: 30,
-  borrowers: 2,
-  deposit: 0,
-  includeDividend: true,
-  includeDeduction: true,
-  ownershipShare: 0.5,
-  salaries: [0, 0] as [number, number],
-  studentLoans: [0, 0] as [number, number],
-}
 
 /** Highest loan-to-value Norwegian lenders may grant: 10 % equity is required. */
 const MAX_LOAN_TO_VALUE = 0.9
@@ -73,19 +61,58 @@ export function App() {
 }
 
 function Calculator({ defaults }: { defaults: Defaults }) {
-  const [input, setInput] = useState<LoanInput>({ ...EXAMPLE, equities: defaults.equities })
-  const [config, setConfig] = useState<Config>(defaults.config)
-  const [stressed, setStressed] = useState(false)
+  // Pick up where you left off in this browser, or start blank.
+  const [draft] = useState(loadDraft)
+  const [input, setInput] = useState<FormValues>(draft?.form ?? EMPTY_FORM)
+  const [config, setConfig] = useState<Config>(draft?.config ?? defaults.config)
+  const [stressed, setStressed] = useState(draft?.stressed ?? false)
+  const [viewName, setViewName] = useState<string | null>(draft?.viewName ?? null)
+  const [views, setViews] = useState<SavedView[]>(loadViews)
 
-  const patch = (changes: Partial<LoanInput>) => setInput((prev) => ({ ...prev, ...changes }))
+  useEffect(() => {
+    saveDraft({ form: input, config, stressed, viewName })
+  }, [input, config, stressed, viewName])
+
+  const patch = (changes: Partial<FormValues>) => setInput((prev) => ({ ...prev, ...changes }))
   const patchConfig = (changes: Partial<Config>) => setConfig((prev) => ({ ...prev, ...changes }))
 
+  const ready = isReady(input)
+  const loanInput = toLoanInput(input)
   const activeInput = stressed
-    ? { ...input, nominalRate: input.nominalRate + STRESS_BUMP }
-    : input
-  const { schedule, error, pending } = useSchedule(activeInput, config)
+    ? { ...loanInput, nominalRate: loanInput.nominalRate + STRESS_BUMP }
+    : loanInput
+  const { schedule, error, pending } = useSchedule(activeInput, config, ready)
+
+  const loadView = (name: string) => {
+    const view = views.find((v) => v.name === name)
+    if (!view) return
+    setInput(view.form)
+    setConfig(view.config)
+    setStressed(view.stressed)
+    setViewName(view.name)
+  }
 
   return (
+    <>
+      <ViewsBar
+        views={views}
+        current={viewName}
+        onLoad={loadView}
+        onSave={(name) => {
+          setViews(saveView({ name, savedAt: new Date().toISOString(), form: input, config, stressed }))
+          setViewName(name)
+        }}
+        onDelete={(name) => {
+          setViews(deleteView(name))
+          setViewName(null)
+        }}
+        onNew={() => {
+          setInput(EMPTY_FORM)
+          setConfig(defaults.config)
+          setStressed(false)
+          setViewName(null)
+        }}
+      />
     <div className="layout">
       <form className="panel inputs" onSubmit={(event) => event.preventDefault()}>
         <section className="group">
@@ -219,13 +246,13 @@ function Calculator({ defaults }: { defaults: Defaults }) {
                 <MoneyField
                   label="Max loan per borrower"
                   value={config.maxLoanPerBorrower}
-                  onValueChange={(maxLoanPerBorrower) => patchConfig({ maxLoanPerBorrower })}
+                  onValueChange={(maxLoanPerBorrower) => patchConfig({ maxLoanPerBorrower: maxLoanPerBorrower ?? 0 })}
                   step={100_000}
                 />
                 <MoneyField
                   label="Max deposit"
                   value={config.maxDeposit}
-                  onValueChange={(maxDeposit) => patchConfig({ maxDeposit })}
+                  onValueChange={(maxDeposit) => patchConfig({ maxDeposit: maxDeposit ?? 0 })}
                   step={100_000}
                 />
                 <RateField
@@ -258,7 +285,9 @@ function Calculator({ defaults }: { defaults: Defaults }) {
             {error}
           </p>
         ) : null}
-        {schedule ? (
+        {!ready ? (
+          <p className="muted">Enter a purchase price to start.</p>
+        ) : schedule ? (
           <Results
             schedule={schedule}
             stressed={stressed}
@@ -266,12 +295,12 @@ function Calculator({ defaults }: { defaults: Defaults }) {
             salaries={input.salaries}
             studentLoans={input.studentLoans}
             onSalaryChange={(index, salary) => {
-              const salaries: [number, number] = [...input.salaries]
+              const salaries: [Money, Money] = [...input.salaries]
               salaries[index] = salary
               patch({ salaries })
             }}
             onStudentLoanChange={(index, studentLoan) => {
-              const studentLoans: [number, number] = [...input.studentLoans]
+              const studentLoans: [Money, Money] = [...input.studentLoans]
               studentLoans[index] = studentLoan
               patch({ studentLoans })
             }}
@@ -281,6 +310,7 @@ function Calculator({ defaults }: { defaults: Defaults }) {
         )}
       </div>
     </div>
+    </>
   )
 }
 
@@ -296,10 +326,10 @@ function Results({
   schedule: Schedule
   stressed: boolean
   pending: boolean
-  salaries: [number, number]
-  studentLoans: [number, number]
-  onSalaryChange: (index: 0 | 1, salary: number) => void
-  onStudentLoanChange: (index: 0 | 1, studentLoan: number) => void
+  salaries: [Money, Money]
+  studentLoans: [Money, Money]
+  onSalaryChange: (index: 0 | 1, salary: Money) => void
+  onStudentLoanChange: (index: 0 | 1, studentLoan: Money) => void
 }) {
   const first = schedule.monthlyCost[1]!
   const last = schedule.monthlyCost[schedule.months]!
@@ -397,10 +427,10 @@ function Owners({
   onStudentLoanChange,
 }: {
   schedule: Schedule
-  salaries: [number, number]
-  studentLoans: [number, number]
-  onSalaryChange: (index: 0 | 1, salary: number) => void
-  onStudentLoanChange: (index: 0 | 1, studentLoan: number) => void
+  salaries: [Money, Money]
+  studentLoans: [Money, Money]
+  onSalaryChange: (index: 0 | 1, salary: Money) => void
+  onStudentLoanChange: (index: 0 | 1, studentLoan: Money) => void
 }) {
   return (
     <section className="owners">
@@ -442,12 +472,12 @@ function Owner({
   person: Person
   /** Index of the other owner, for the labels. */
   otherIndex: 0 | 1
-  salary: number
-  studentLoan: number
-  onSalaryChange: (salary: number) => void
-  onStudentLoanChange: (studentLoan: number) => void
+  salary: Money
+  studentLoan: Money
+  onSalaryChange: (salary: Money) => void
+  onStudentLoanChange: (studentLoan: Money) => void
 }) {
-  const hasSalary = salary > 0
+  const hasSalary = (salary ?? 0) > 0
   const other = `person ${otherIndex + 1}`
 
   return (
@@ -511,7 +541,7 @@ function Owner({
             <Stat label="Net pay, regular month, with deduction" value={formatMoney(person.netMonthly)} emphasis />
             <Stat label="Tax / year" value={formatMoney(person.tax)} />
             <Stat label="Left after loan + expenses / month" value={formatMoney(person.leftAfterLoanAndExpenses)} />
-            {studentLoan > 0 ? (
+            {(studentLoan ?? 0) > 0 ? (
               <Stat label="Left after loan + expenses, with student loan" value={formatMoney(person.leftAfterAll)} emphasis />
             ) : null}
           </dl>
