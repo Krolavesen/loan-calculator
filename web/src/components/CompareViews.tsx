@@ -17,7 +17,7 @@ interface Projected extends Side {
 }
 
 type Value = number | boolean | null
-type Kind = 'money' | 'percent' | 'count' | 'bool' | 'split'
+type Kind = 'money' | 'percent' | 'count' | 'bool' | 'split' | 'evenMoney'
 
 interface Row {
   group: string
@@ -58,6 +58,12 @@ function personRows(i: 0 | 1): Row[] {
 const ROWS: Row[] = [
   { group: 'Inputs', label: 'Purchase price', kind: 'money', value: (s) => s.form.price },
   { group: 'Inputs', label: 'Joint expenses / month', kind: 'money', value: (s) => s.form.jointExpenses },
+  {
+    group: 'Inputs',
+    label: 'Joint expenses, person 1 pays',
+    kind: 'evenMoney',
+    value: (s) => s.form.jointExpensesPerson1,
+  },
   { group: 'Inputs', label: 'Equity, person 1', kind: 'money', value: (s) => s.form.equities[0] },
   { group: 'Inputs', label: 'Equity, person 2', kind: 'money', value: (s) => s.form.equities[1] },
   { group: 'Inputs', label: 'Nominal rate', kind: 'percent', value: (s) => s.form.nominalRate },
@@ -121,6 +127,8 @@ const signedMoney = new Intl.NumberFormat('nb-NO', {
 function show(kind: Kind, value: Value): string {
   if (kind === 'bool') return value ? 'On' : 'Off'
   if (kind === 'split' && value === null) return 'Auto'
+  if (kind === 'evenMoney' && value === null) return 'Even split'
+  if (kind === 'evenMoney' && typeof value === 'number') return formatMoney(value)
   if (value === null || typeof value === 'boolean') return '—'
   if (kind === 'money') return formatMoney(value)
   if (kind === 'percent' || kind === 'split') return formatPercent(value)
@@ -129,10 +137,10 @@ function show(kind: Kind, value: Value): string {
 
 /** The difference B − A, or null when the two are the same. */
 function difference(kind: Kind, a: Value, b: Value): string | null {
-  if (kind === 'bool' || kind === 'split') {
+  if (kind === 'bool' || kind === 'split' || kind === 'evenMoney') {
     if (a === b) return null
-    if (kind === 'split' && typeof a === 'number' && typeof b === 'number') {
-      return `${points.format((b - a) * 100)} pp`
+    if (typeof a === 'number' && typeof b === 'number') {
+      return kind === 'split' ? `${points.format((b - a) * 100)} pp` : signedMoney.format(b - a)
     }
     return 'Changed'
   }

@@ -391,6 +391,30 @@ class OwnershipTest(unittest.TestCase):
             with self.assertRaises(RequestError, msg=bad):
                 build_response({**PAYLOAD, 'recurringPayments': bad})
 
+    def test_joint_expenses_can_be_split_by_a_fixed_amount(self):
+        body = build_response({**PAYLOAD, 'jointExpensesPerson1': 3929})
+        one, two = body['persons']
+        self.assertTrue(body['jointExpensesSetByHand'])
+        self.assertEqual([one['monthlyExpenses'], two['monthlyExpenses']], [3929, 0])
+        self.assertAlmostEqual(
+            two['monthlyCostWithExpenses'], two['monthlyCost'], places=2
+        )
+
+        body = build_response({**PAYLOAD, 'jointExpensesPerson1': 1000})
+        self.assertEqual(
+            [p['monthlyExpenses'] for p in body['persons']], [1000, 2929]
+        )
+
+    def test_joint_expenses_default_to_an_even_split(self):
+        body = build_response({**PAYLOAD, 'jointExpensesPerson1': None})
+        self.assertFalse(body['jointExpensesSetByHand'])
+        self.assertEqual([p['monthlyExpenses'] for p in body['persons']], [1964.5, 1964.5])
+
+    def test_rejects_a_joint_expenses_split_outside_the_total(self):
+        for bad in (-1, 4000):
+            with self.assertRaises(RequestError, msg=bad):
+                build_response({**PAYLOAD, 'jointExpensesPerson1': bad})
+
     def test_rejects_a_share_outside_zero_to_one(self):
         with self.assertRaises(RequestError):
             build_response({**PAYLOAD, 'ownershipShare': 1.5})

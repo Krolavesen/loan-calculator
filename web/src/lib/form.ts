@@ -15,6 +15,8 @@ export interface RecurringPayment {
 export interface FormValues {
   price: Money
   jointExpenses: Money
+  /** What person 1 pays of the joint expenses, or null to split them evenly. */
+  jointExpensesPerson1: Money
   equities: [Money, Money]
   nominalRate: number
   years: number
@@ -34,6 +36,7 @@ export interface FormValues {
 export const EMPTY_FORM: FormValues = {
   price: null,
   jointExpenses: null,
+  jointExpensesPerson1: null,
   equities: [null, null],
   nominalRate: 0.035,
   years: 30,
@@ -63,6 +66,12 @@ export function toLoanInput(form: FormValues): LoanInput {
   return {
     price: form.price ?? 0,
     jointExpenses: form.jointExpenses ?? 0,
+    // Keep the split inside the total, so lowering the total never makes the
+    // request invalid.
+    jointExpensesPerson1:
+      form.jointExpensesPerson1 === null
+        ? null
+        : Math.min(form.jointExpensesPerson1, form.jointExpenses ?? 0),
     equities: pair(form.equities),
     nominalRate: form.nominalRate,
     years: form.years,

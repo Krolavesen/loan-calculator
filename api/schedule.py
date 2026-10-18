@@ -72,6 +72,25 @@ def _flag(payload, key, default=True):
     return value
 
 
+def _expense_split(payload, joint_expenses) -> list:
+    """Split the monthly joint expenses between the two owners.
+
+    Person 1 pays "jointExpensesPerson1" NOK a month and person 2 the
+    rest. Without it, they split the expenses evenly.
+    """
+    if payload.get('jointExpensesPerson1') is None:
+        return [joint_expenses / 2, joint_expenses / 2]
+
+    person_1 = _number(payload, 'jointExpensesPerson1')
+
+    if not 0 <= person_1 <= joint_expenses:
+        raise RequestError(
+            '"jointExpensesPerson1" must be between 0 and the joint expenses'
+        )
+
+    return [person_1, joint_expenses - person_1]
+
+
 def _loan_share(payload):
     """Read person 1's share of the bank loan, or None to derive it."""
     if payload.get('loanShare') is None:
@@ -167,7 +186,7 @@ def _annual_interest(interest) -> list:
 
 def _person(
     share, equity, price, loan_amount, salary, student_loan, recurring,
-    joint_expenses, schedules, annual_interest, deduction_rate,
+    monthly_expenses, schedules, annual_interest, deduction_rate,
     loan_share_override=None,
 ) -> dict:
     """Project one owner's part of the loan and its effect on their pay.
@@ -201,9 +220,6 @@ def _person(
     )
     pay = get_net_pay(salary, max(interest_year_one, 0))
     monthly_cost = float(schedules['monthly_cost'][1] * loan_share)
-    # Joint expenses are split evenly between the two owners.
-    monthly_expenses = joint_expenses / 2
-
     return {
         'share': share,
         'equity': equity,
@@ -376,18 +392,21 @@ def build_response(payload) -> dict:
         'annualInterest': [round(i, 2) for i in annual_interest],
         # Whether the bank loan split was set by hand, not derived.
         'loanShareSetByHand': loan_share is not None,
+        # Whether person 1's part of the joint expenses was set by hand.
+        'jointExpensesSetByHand': payload.get('jointExpensesPerson1') is not None,
         # Each owner's share: person 1 owns `ownershipShare`, person 2 the rest.
         'persons': [
             _person(
                 person_share, person_equity, price, loan.amount, salary,
-                student_loan, person_recurring, apartment.joint_expenses,
+                student_loan, person_recurring, person_expenses,
                 schedules, annual_interest, deduction_rate, person_loan_share,
             )
             for (
                 person_share, person_equity, salary, student_loan,
-                person_recurring, person_loan_share,
+                person_recurring, person_expenses, person_loan_share,
             ) in zip(
                 (share, 1 - share), equities, salaries, student_loans, recurring,
+                _expense_split(payload, apartment.joint_expenses),
                 (None, None) if loan_share is None else (loan_share, 1 - loan_share),
             )
         ],

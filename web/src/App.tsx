@@ -169,9 +169,17 @@ function Calculator({ defaults }: { defaults: Defaults }) {
           />
           <MoneyField
             label="Joint expenses / month"
-            description="Felleskostnader, split across borrowers."
+            description="Felleskostnader for the whole property."
             value={input.jointExpenses}
             onValueChange={(jointExpenses) => patch({ jointExpenses })}
+            step={100}
+          />
+          <MoneyField
+            label="Joint expenses, person 1 pays"
+            description={describeExpenseSplit(input.jointExpenses, input.jointExpensesPerson1)}
+            value={input.jointExpensesPerson1}
+            onValueChange={(jointExpensesPerson1) => patch({ jointExpensesPerson1 })}
+            max={input.jointExpenses ?? 0}
             step={100}
           />
           <MoneyField
@@ -578,7 +586,7 @@ function Owner({
       <dl className="stats">
         <Stat label="Loan / month" value={formatMoney(person.monthlyCost)} />
         <Stat
-          label="Joint expenses / month (half)"
+          label="Joint expenses / month"
           value={formatMoney(person.monthlyExpenses)}
         />
         <Stat label="Loan + expenses / month" value={formatMoney(person.monthlyCostWithExpenses)} emphasis />
@@ -672,6 +680,13 @@ function LoanSplitField({
       ) : null}
     </div>
   )
+}
+
+/** Explain how the joint expenses are split between the two owners. */
+function describeExpenseSplit(total: Money, person1: Money) {
+  if (person1 === null) return 'Leave empty to split evenly. Person 2 pays the rest.'
+  const paid = Math.min(person1, total ?? 0)
+  return `Person 2 pays ${formatMoney((total ?? 0) - paid)}. Clear the field to split evenly.`
 }
 
 /** Label the bottom line by what it adds and takes away. */

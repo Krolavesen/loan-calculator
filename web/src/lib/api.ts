@@ -3,6 +3,8 @@ export interface LoanInput {
   price: number
   /** Monthly joint apartment expenses ("felleskostnader"), in NOK. */
   jointExpenses: number
+  /** What person 1 pays of the joint expenses each month, or null to split them evenly. */
+  jointExpensesPerson1: number | null
   /** Equity (egenkapital) brought by person 1 and person 2, in NOK. */
   equities: [number, number]
   /** Annual nominal interest rate as a decimal, e.g. 0.0492 for 4.92 %. */
@@ -51,7 +53,7 @@ export interface Person {
   grossSalary: number
   /** Their share of the month-1 loan cost. */
   monthlyCost: number
-  /** Half the joint expenses: an even split between the two owners. */
+  /** Their part of the joint expenses: half, unless set by hand. */
   monthlyExpenses: number
   monthlyCostWithExpenses: number
   /** Their share of the interest paid in year 1: the skattekort figure. */
@@ -136,6 +138,8 @@ export interface Schedule {
   annualInterest: number[]
   /** Whether `loanShare` was set by hand rather than derived. */
   loanShareSetByHand: boolean
+  /** Whether person 1's part of the joint expenses was set by hand. */
+  jointExpensesSetByHand: boolean
   persons: [Person, Person]
   quantiles: Quantiles
 }
